@@ -44,7 +44,7 @@ type LambdaEnv = {
 }
 
 export class ImageOptimizationStack extends Stack {
-  constructor(scope: Construct, id: string, props?: StackProps, stageName?: string) {
+  constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
     // Change stack parameters based on provided context
