@@ -34,6 +34,8 @@ When the deployment is completed within minutes, the CDK output will include the
 
 Note that when deploying in production, it’s recommended to use an existing S3 bucket where your images are stored. To do that, deploy the stack in the same region of your S3 bucket, using the following parameter: cdk deploy -c S3_IMAGE_BUCKET_NAME=’YOUR_S3_BUCKET_NAME’. The solution allows you to configure other parameters such as whether you want to store transformed images in S3 (STORE_TRANSFORMED_IMAGES), the duration after which transformed images are automatically removed from S3 (S3_TRANSFORMED_IMAGE_EXPIRATION_DURATION), and the Cache-Control header used with transformed images (S3_TRANSFORMED_IMAGE_CACHE_TTL).
 
+Additional parameters added to allow stack/resource name modification based on a stage name (STAGE_NAME), and cloudfront distribution comment (CLOUDFRONT_COMMENT).
+
 ## Clean up resources
 
 To remove cloud resources created for this solution, just execute the following command:

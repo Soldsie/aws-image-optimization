@@ -9,6 +9,8 @@ import { createHash } from 'crypto';
 
 // Stack Parameters
 
+// used to post fix resource names (as needed) to isolate them to deployment by stage (i.e. dev, staging, prod)
+var STAGE_NAME = '';
 // related to architecture. If set to false, transformed images are not stored in S3, and all image requests land on Lambda
 var STORE_TRANSFORMED_IMAGES = 'true';
 // Parameters of S3 bucket where original images are stored
@@ -16,6 +18,7 @@ var S3_IMAGE_BUCKET_NAME: string;
 // CloudFront parameters
 var CLOUDFRONT_ORIGIN_SHIELD_REGION = getOriginShieldRegion(process.env.AWS_REGION || process.env.CDK_DEFAULT_REGION || 'us-east-1');
 var CLOUDFRONT_CORS_ENABLED = 'true';
+var CLOUDFRONT_COMMENT = 'image optimization - image delivery';
 // Parameters of transformed images
 var S3_TRANSFORMED_IMAGE_EXPIRATION_DURATION = '90';
 var S3_TRANSFORMED_IMAGE_CACHE_TTL = 'max-age=31622400';
@@ -41,7 +44,7 @@ type LambdaEnv = {
 }
 
 export class ImageOptimizationStack extends Stack {
-  constructor(scope: Construct, id: string, props?: StackProps) {
+  constructor(scope: Construct, id: string, props?: StackProps, stageName?: string) {
     super(scope, id, props);
 
     // Change stack parameters based on provided context
@@ -51,9 +54,11 @@ export class ImageOptimizationStack extends Stack {
     S3_IMAGE_BUCKET_NAME = this.node.tryGetContext('S3_IMAGE_BUCKET_NAME') || S3_IMAGE_BUCKET_NAME;
     CLOUDFRONT_ORIGIN_SHIELD_REGION = this.node.tryGetContext('CLOUDFRONT_ORIGIN_SHIELD_REGION') || CLOUDFRONT_ORIGIN_SHIELD_REGION;
     CLOUDFRONT_CORS_ENABLED = this.node.tryGetContext('CLOUDFRONT_CORS_ENABLED') || CLOUDFRONT_CORS_ENABLED;
+    CLOUDFRONT_COMMENT = this.node.tryGetContext('CLOUDFRONT_COMMENT') || CLOUDFRONT_COMMENT;
     LAMBDA_MEMORY = this.node.tryGetContext('LAMBDA_MEMORY') || LAMBDA_MEMORY;
     LAMBDA_TIMEOUT = this.node.tryGetContext('LAMBDA_TIMEOUT') || LAMBDA_TIMEOUT;
     LOG_TIMING = this.node.tryGetContext('LOG_TIMING') || LOG_TIMING;
+    STAGE_NAME = this.node.tryGetContext('STAGE_NAME') || STAGE_NAME;
 
     // Create secret key to be used between CloudFront and Lambda URL for access control
     const SECRET_KEY = createHash('md5').update(this.node.addr).digest('hex');
@@ -114,7 +119,7 @@ export class ImageOptimizationStack extends Stack {
 
     // create bucket for transformed images if enabled in the architecture
     if (STORE_TRANSFORMED_IMAGES === 'true') {
-      transformedImageBucket = new s3.Bucket(this, 's3-transformed-image-bucket', {
+      transformedImageBucket = new s3.Bucket(this, `s3-transformed-image-bucket`, {
         removalPolicy: RemovalPolicy.DESTROY,
         autoDeleteObjects: true,
         lifecycleRules: [
@@ -229,7 +234,7 @@ export class ImageOptimizationStack extends Stack {
     if (CLOUDFRONT_CORS_ENABLED === 'true') {
       // Creating a custom response headers policy. CORS allowed for all origins.
       const imageResponseHeadersPolicy = new cloudfront.ResponseHeadersPolicy(this, `ResponseHeadersPolicy${this.node.addr}`, {
-        responseHeadersPolicyName: 'ImageResponsePolicy',
+        responseHeadersPolicyName: `ImageResponsePolicy${!STAGE_NAME ? '' : '-' + STAGE_NAME}`,
         corsBehavior: {
           accessControlAllowCredentials: false,
           accessControlAllowHeaders: ['*'],
@@ -249,7 +254,7 @@ export class ImageOptimizationStack extends Stack {
       imageDeliveryCacheBehaviorConfig.responseHeadersPolicy = imageResponseHeadersPolicy;
     }
     const imageDelivery = new cloudfront.Distribution(this, 'imageDeliveryDistribution', {
-      comment: 'image optimization - image delivery',
+      comment: `${CLOUDFRONT_COMMENT}`,
       defaultBehavior: imageDeliveryCacheBehaviorConfig
     });
 
